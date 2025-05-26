@@ -5,6 +5,7 @@ import React from 'react'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { toast } from 'sonner'
+import Image from 'next/image'
 
 
 export default function FlipkartChecker() {
@@ -55,9 +56,13 @@ export default function FlipkartChecker() {
   return (
     <div className="max-w-md mx-auto p-4">
       <div className="flex justify-center mb-6">
-        <img 
+        <Image
           src="/logo.png" 
           alt="Flipkart Logo"
+          width={
+            150 // Adjust width as needed
+          }
+          height={50} // Adjust height as needed
           className="h-16 w-auto object-contain"
         />
       </div>
