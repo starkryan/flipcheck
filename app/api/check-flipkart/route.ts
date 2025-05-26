@@ -1,8 +1,13 @@
 import { NextResponse } from 'next/server'
 
 export async function POST(request: Request) {
+  console.log('Starting Flipkart check API request')
   try {
-    const { phoneNumbers } = await request.json()
+    const requestBody = await request.json()
+    console.log('Received request with body:', JSON.stringify(requestBody, null, 2))
+    const { phoneNumbers } = requestBody
+    
+    console.log('Processing phone numbers:', phoneNumbers)
     
     if (!phoneNumbers?.length) {
       return NextResponse.json(
