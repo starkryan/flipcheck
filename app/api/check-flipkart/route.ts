@@ -23,32 +23,54 @@ export async function POST(request: Request) {
       ? 'https://www.flipkart.com/api/6/user/signup/status'
       : 'https://1.rome.api.flipkart.com/api/6/user/signup/status'
 
-    try {
-      const flipkartResponse = await fetch(apiUrl, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:138.0) Gecko/20100101 Firefox/138.0 FKUA/website/42/website/Desktop',
-          'Origin': 'https://www.flipkart.com',
-          'Referer': 'https://www.flipkart.com/',
-          'Accept': 'application/json',
-        },
-        body: JSON.stringify({
-          loginId: formattedNumbers,
-          supportAllStates: true
-        })
-      })
+    // Helper function to make API call with retries
+    const makeApiCall = async (url: string, retries = 3, delay = 1000) => {
+      for (let i = 0; i < retries; i++) {
+        try {
+          const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'X-User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:138.0) Gecko/20100101 Firefox/138.0 FKUA/website/42/website/Desktop',
+              'Origin': 'https://www.flipkart.com',
+              'Referer': 'https://www.flipkart.com/',
+              'Accept': 'application/json',
+            },
+            body: JSON.stringify({
+              loginId: formattedNumbers,
+              supportAllStates: true
+            })
+          })
 
-      if (!flipkartResponse.ok) {
-        const errorText = await flipkartResponse.text()
-        console.error('Flipkart API error:', {
-          status: flipkartResponse.status,
-          statusText: flipkartResponse.statusText,
-          headers: Object.fromEntries(flipkartResponse.headers.entries()),
-          errorText
-        })
-        throw new Error(`API request failed with status ${flipkartResponse.status}`)
+          if (response.status === 429) {
+            const retryAfter = parseInt(response.headers.get('Retry-After') || delay.toString())
+            await new Promise(resolve => setTimeout(resolve, retryAfter * 1000))
+            continue
+          }
+
+          if (!response.ok) {
+            const errorText = await response.text()
+            console.error('Flipkart API error:', {
+              status: response.status,
+              statusText: response.statusText,
+              headers: Object.fromEntries(response.headers.entries()),
+              errorText
+            })
+            throw new Error(`API request failed with status ${response.status}`)
+          }
+
+          return response
+        } catch (error) {
+          if (i === retries - 1) throw error
+          await new Promise(resolve => setTimeout(resolve, delay))
+          delay *= 2 // Exponential backoff
+        }
       }
+      throw new Error('All retries failed')
+    }
+
+    try {
+      const flipkartResponse = await makeApiCall(apiUrl)
 
       const contentType = flipkartResponse.headers.get('content-type')
       if (!contentType?.includes('application/json')) {
