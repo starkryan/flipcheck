@@ -1,9 +1,51 @@
 import { NextResponse } from 'next/server'
 
+const PROXY_URL = 'https://api.brightdata.com/request'
+const PROXY_ZONE = 'web_unlocker1'
+
+async function makeProxyRequest(url: string, body: any) {
+  const response = await fetch(PROXY_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'Authorization': `Bearer ${process.env.BRIGHT_DATA_API_KEY}`
+    },
+    body: JSON.stringify({
+      zone: PROXY_ZONE,
+      url: url,
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:138.0) Gecko/20100101 Firefox/138.0 FKUA/website/42/website/Desktop',
+        'Origin': 'https://www.flipkart.com',
+        'Referer': 'https://www.flipkart.com/',
+        'Accept': 'application/json',
+      },
+      body: JSON.stringify(body)
+    })
+  })
+  return response
+}
+
+async function withRetry(fn: () => Promise<Response>, maxRetries = 3, delayMs = 1000) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      const response = await fn()
+      if (response.status !== 429) return response
+      if (i < maxRetries - 1) await new Promise(resolve => setTimeout(resolve, delayMs * (i + 1)))
+    } catch (error) {
+      if (i === maxRetries - 1) throw error
+      await new Promise(resolve => setTimeout(resolve, delayMs * (i + 1)))
+    }
+  }
+  throw new Error('Max retries reached')
+}
+
 export async function POST(request: Request) {
   console.log('Starting Flipkart check API request')
+  // Cache request body at start to avoid double reading
+  const requestBody = await request.json()
   try {
-    const requestBody = await request.json()
     console.log('Received request with body:', JSON.stringify(requestBody, null, 2))
     const { phoneNumbers } = requestBody
     
@@ -27,16 +69,8 @@ export async function POST(request: Request) {
       : 'https://1.rome.api.flipkart.com/api/6/user/signup/status'
 
     console.log('Making API call to:', apiUrl)
-    const flipkartResponse = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'X-User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:138.0) Gecko/20100101 Firefox/138.0 FKUA/website/42/website/Desktop',
-        'Origin': 'https://www.flipkart.com',
-        'Referer': 'https://www.flipkart.com/',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify({
+    const flipkartResponse = await withRetry(async () => {
+      return makeProxyRequest(apiUrl, {
         loginId: formattedNumbers,
         supportAllStates: true
       })
@@ -66,8 +100,6 @@ export async function POST(request: Request) {
     console.error('Primary endpoint failed:', error)
     
     try {
-      // Re-format numbers for fallback attempt
-      const requestBody = await request.json()
       const { phoneNumbers } = requestBody
       const formattedNumbers = phoneNumbers.map((num: string) => {
         const digits = num.replace(/\D/g, '')
@@ -75,15 +107,8 @@ export async function POST(request: Request) {
       })
 
       console.log('Trying fallback endpoint...')
-      const fallbackResponse = await fetch('https://1.rome.api.flipkart.com/api/6/user/signup/status', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-User-Agent': 'Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:138.0) Gecko/20100101 Firefox/138.0 FKUA/website/42/website/Desktop',
-          'Origin': 'https://www.flipkart.com',
-          'Referer': 'https://www.flipkart.com/',
-        },
-        body: JSON.stringify({
+      const fallbackResponse = await withRetry(async () => {
+        return makeProxyRequest('https://1.rome.api.flipkart.com/api/6/user/signup/status', {
           loginId: formattedNumbers,
           supportAllStates: true
         })
