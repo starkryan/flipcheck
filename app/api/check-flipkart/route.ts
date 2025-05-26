@@ -34,6 +34,19 @@ export async function POST(request: Request) {
       })
     })
 
+    if (!flipkartResponse.ok) {
+      const errorText = await flipkartResponse.text()
+      console.error('Flipkart API error:', errorText)
+      throw new Error(`API request failed with status ${flipkartResponse.status}`)
+    }
+
+    const contentType = flipkartResponse.headers.get('content-type')
+    if (!contentType?.includes('application/json')) {
+      const responseText = await flipkartResponse.text()
+      console.error('Non-JSON response:', responseText)
+      throw new Error('Received non-JSON response from API')
+    }
+
     const data = await flipkartResponse.json()
     return NextResponse.json(data)
   } catch (error) {
