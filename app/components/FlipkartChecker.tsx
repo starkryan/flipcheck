@@ -46,7 +46,15 @@ export default function FlipkartChecker() {
         description: `Number: ${number}`,
       })
     } catch (err) {
-      setError('Error checking numbers')
+      const errorMsg = err instanceof Error ? err.message : 'Error checking numbers'
+      setError(errorMsg)
+      toast.error('API Request Failed', {
+        description: errorMsg,
+        action: {
+          label: 'Retry',
+          onClick: () => handleCheck(),
+        },
+      })
       console.error(err)
     } finally {
       setLoading(false)
@@ -94,7 +102,24 @@ export default function FlipkartChecker() {
 
       {results && (
         <div className="mt-6 space-y-4">
-          <h2 className="text-lg font-medium">Results</h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-lg font-medium">Results</h2>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                toast.info('Full API Response', {
+                  description: (
+                    <pre className="mt-2 w-[340px] rounded-md bg-accent p-4 overflow-auto">
+                      {JSON.stringify(results, null, 2)}
+                    </pre>
+                  ),
+                })
+              }}
+            >
+              View Raw API
+            </Button>
+          </div>
           {Object.entries(results.RESPONSE.userDetails).map(([number, status]) => (
             <div key={number} className="bg-accent p-4 rounded-md">
               <p className="font-medium">{number}</p>
