@@ -71,6 +71,10 @@ export default function FlipkartChecker() {
             150 // Adjust width as needed
           }
           height={50} // Adjust height as needed
+          priority
+          unoptimized
+          loading="eager"
+          quality={100}
           className="h-16 w-auto object-contain"
         />
       </div>
